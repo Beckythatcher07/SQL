@@ -52,7 +52,7 @@ Product_Price DECIMAL(4,2),
 Product_Hair_Texture VARCHAR(10),
 Product_Hair_Type VARCHAR(2)
 );
-INSERT INTO SUPERDRUG (product_id,product_name,product_price,product_hair_type,product_hair_type) VALUES (1,'Rosewater Sulfate-Free Miracle Moisture Boost',3.99,'Straight','1A');
+INSERT INTO SUPERDRUG (product_id,product_name,product_price,product_hair_texture,product_hair_type) VALUES (1,'Rosewater Sulfate-Free Miracle Moisture Boost',3.99,'Straight','1A');
 
 -- Products that can be bought in Boots listed here
 create table Boots(
@@ -189,5 +189,58 @@ UPDATE product_masterlist SET
 product_id = 31
 WHERE product_brand = 'Is the best';
 SET SQL_SAFE_UPDATES = 0;
+
+-- Using a subquery to find the product name and product price of products that can be bought on Asos and are Vegan.
+Select product_name, product_price
+FROM asos
+WHERE product_name IN (
+SELECT product_name
+FROM ethics
+WHERE vegan='Yes'
+)
+ORDER BY product_price DESC;
+
+-- Create a stored procedure to create a full product name including brand
+DELIMITER // 
+CREATE PROCEDURE full_product_name_and_brand(product_brand VARCHAR(50),product_name VARCHAR(75))
+BEGIN
+DECLARE full_product_name_and_brand VARCHAR(200);
+SET full_product_name_and_brand = CONCAT(product_brand, ' ',product_name);
+SELECT full_product_name_and_brand;
+END //
+
+DELIMITER //
+CALL full_product_name_and_brand('As I Am', 'Twist Defining Cream');
+END //
+
+-- Create an event where at the current time stamp, a value is inserted into product masterlist.
+
+SET GLOBAL EVENT_SCHEDULER=ON;
+DELIMITER //
+CREATE EVENT IF NOT EXISTS event_1
+ON SCHEDULE AT CURRENT_TIMESTAMP
+DO
+INSERT INTO product_masterlist VALUES ('32','Wave Hello Shampoo','Shampoo','Wavy','2B','Noughty');
+END //
+
+DELIMITER //
+DELETE FROM product_masterlist WHERE product_id='32';
+Select * from product_masterlist;
+END //
+
+-- Create a stored function for showing product name and rating together
+
+DELIMITER //
+CREATE FUNCTION full_product_rating_and_name(product_name VARCHAR(75),rating Integer)
+RETURNS VARCHAR(100) DETERMINISTIC
+RETURN CONCAT(product_name,' ',rating);
+END //
+
+-- Create an example query with group by where the product brands in the master list are grouped together
+DELIMITER //
+SELECT COUNT(product_brand) as total, product_brand
+FROM product_masterlist
+GROUP BY product_brand;
+END //
 
 -- THE END
