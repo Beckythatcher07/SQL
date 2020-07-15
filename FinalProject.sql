@@ -1,5 +1,5 @@
-CREATE DATABASE HAIR_PROJECT;
-USE HAIR_PROJECT;
+CREATE DATABASE HAIR;
+USE HAIR;
 
 -- All products in database listed in Product_Masterlist table
 create table Product_Masterlist(
@@ -63,7 +63,7 @@ Product_Name VARCHAR(75),
 Product_Price DECIMAL(4,2),
 Product_Hair_Texture VARCHAR(10),
 Product_Hair_Type VARCHAR(2),
-Shipping_Price DECIMAL (4,2)
+Shipping_Price DECIMAL(4,2)
 );
 
 Select * from Boots;
@@ -83,7 +83,6 @@ Select * from Asos;
 create table Ethics(
 Product_ID Integer PRIMARY KEY NOT NULL,
 Product_Name VARCHAR(75),
-Product_Brand VARCHAR(50),
 Cruelty_Free VARCHAR(3),
 Vegan VARCHAR(3),
 Natural_Ingredients VARCHAR(3)
@@ -117,7 +116,8 @@ Product_ID Integer,
 Product_Name VARCHAR(75),
 Order_Id INTEGER PRIMARY KEY NOT NULL,
 Product_Brand VARCHAR(50),
-Retail_Store VARCHAR(10)
+Retail_Store VARCHAR(10),
+FOREIGN KEY (Product_id) REFERENCES product_masterlist (Product_id)
 );
 
 Select * from Retail_Store;
@@ -132,45 +132,100 @@ WHERE Vegan='Yes'
 )
 ORDER BY Product_Price DESC;
 
--- Create a stored procedure to create a full product name including brand
-DELIMITER // 
-CREATE PROCEDURE Full_Product_Name_And_Brand(Product_Brand VARCHAR(50),Product_Name VARCHAR(75))
-BEGIN
-DECLARE Full_Product_Name_And_Brand VARCHAR(200);
-SET Full_Product_Name_And_Brand = CONCAT(Product_Brand, ' ',Product_Name);
-SELECT Full_Product_Name_And_Brand;
-END //
-
-DELIMITER //
-CALL Full_Product_Name_And_Brand('As I Am', 'Twist Defining Cream');
-END //
-
--- Create an event where at the current time stamp, a value is inserted into product masterlist.
-
-SET GLOBAL EVENT_SCHEDULER=ON;
-DELIMITER //
-CREATE EVENT IF NOT EXISTS event_1
-ON SCHEDULE AT CURRENT_TIMESTAMP
-DO
-INSERT INTO Product_Masterlist VALUES ('31','Wave Hello Shampoo','Shampoo','Wavy','2B','Noughty');
-END //
-
-DELIMITER //
-DELETE FROM Product_Masterlist WHERE Product_ID='31';
-Select * from Product_Masterlist;
-END //
-
--- Create a stored function for showing product name and rating together
-
-DELIMITER //
-CREATE FUNCTION Full_Product_Rating_And_Name(Product_Name VARCHAR(75),Rating Integer)
-RETURNS VARCHAR(100) DETERMINISTIC
-RETURN CONCAT(Product_Name,' ',Rating);
-END //
-
 -- Create an example query with group by where the product brands in the master list are grouped together
-DELIMITER //
+
 SELECT COUNT(Product_Brand) as total, Product_Brand
 FROM Product_Masterlist
 GROUP BY Product_Brand;
+
+-- Create an event to add another row to our product masterlist table
+Select * from product_masterlist;
+
+CREATE EVENT IF NOT EXISTS Event2
+ON SCHEDULE AT CURRENT_TIMESTAMP + INTERVAL 20 second
+DO
+INSERT INTO product_masterlist(Product_ID, Product_Name, Product_Category,Product_Hair_Texture, Product_Hair_Type,Product_Brand)
+VALUES ('40', 'Wave Hello Shampoo','Shampoo','Wavy','2A','Noughty');
+
+Select * from product_masterlist;
+DELETE FROM Product_Masterlist WHERE Product_ID='40';
+
+-- Create a stored procedure to retrieve all products from superdrug table
+
+DELIMITER //
+CREATE PROCEDURE AllProductsFromSuperdrug()
+BEGIN
+Select * from superdrug;
 END //
+DELIMITER ;
+
+CALL AllProductsFromSuperdrug();
+
+-- Queries+subqueries
+-- which products from superdrug are suitable for those with coily hair?
+SELECT product_name
+FROM Superdrug
+WHERE product_hair_texture = 'Coily';
+
+-- find the products that have a rating of 3 and below
+SELECT product_masterlist.product_id,product_masterlist.product_name,rating.rating
+FROM product_masterlist
+INNER JOIN Rating ON product_masterlist.product_id = rating.product_id;
+
+-- Which products are vegan friendly and natural ingredients?
+SELECT product_name
+FROM Ethics
+WHERE vegan = 'yes' AND natural_ingredients = 'yes';
+
+-- Using limit- find at least 5 prouducts for coily hair
+SELECT product_name, product_hair_texture
+FROM product_masterlist 
+WHERE product_hair_texture = 'Coily'
+LIMIT 5;
+
+-- Name of product brands beginning with L
+SELECT* FROM retail_store WHERE product_brand LIKE'L%';
+
+-- CREATES VIEW THAT SHOWS ALL PRODUCTS SOLD AT BOOTS FOR 5 POUNDS OR LESS
+CREATE VIEW Product_boots AS
+SELECT product_name, product_hair_type,product_price
+FROM Boots
+WHERE product_price <= '5';
+
+-- Using any type of the joins create a view that combines multiple tables in a logical way
+-- Create view showing order number for each product
+Create View Product_Order AS 
+Select product_masterlist.product_id, product_masterlist.product_name,retail_store.order_id
+FROM product_masterlist 
+INNER JOIN retail_Store ON product_masterlist.product_id = retail_store.product_id;
+
+-- Create a view that uses at least 3-4 tables
+Create view Product_Asos AS
+Select product_masterlist.product_id, product_masterlist.product_name, retail_store.order_id, retail_store.retail_store
+FROM product_masterlist
+JOIN retail_store ON product_masterlist.product_id = retail_store.product_id 
+WHERE retail_store = 'ASOS';
+
+-- demonstrate a query that uses the view to produce a logically arranged result set for analysis
+-- using the view What is the name of order_id 6887564 from asos 
+SELECT product_id,product_name
+From product_ASOS view
+WHERE Order_id = 6887564;
+
+-- CREATE TRIGGER and demonstrate how it is used
+ CREATE TRIGGER tr_insert_product_m
+ BEFORE INSERT ON product_masterlist
+ FOR EACH ROW
+ SET NEW.product_brand = UPPER(NEW.product_brand);
+ -- Demonstrate the trigger works
+ INSERT INTO product_masterlist (product_id,product_name,product_brand) VALUES (29,'Regina','Is the best');
+ -- TRIGGER 2: UPDATE
+CREATE TRIGGER tr_update_product_m
+BEFORE UPDATE ON product_masterlist
+FOR EACH ROW
+SET NEW.product_brand = LOWER(NEW.product_brand);
+SET SQL_SAFE_UPDATES = 0;
+UPDATE product_masterlist SET
+product_id = 29
+WHERE product_brand ='Is the best';
+
